@@ -84,6 +84,16 @@ namespace AGDev.StdUtil {
 		}
 	}
 	#region collector
+	public class EasyAsyncCollector<Type> : AsyncCollector<Type> {
+		public Type collected;
+		public bool didFinish = false;
+		void Collector<Type>.Collect(Type item) {
+			collected = item;
+		}
+		void AsyncCollector<Type>.OnFinish() {
+			didFinish = true;
+		}
+	}
 	public class LoggingCollector<Type> : Collector<Type> {
 		public Collector<Type> client;
 		public bool didCollect = false;
