@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Runtime.Serialization;
 namespace AGDev.StdUtil {
 	public class Utilities {
 		public static bool CompareNullableString(string str, string str2) {
@@ -20,6 +19,32 @@ namespace AGDev.StdUtil {
 				return true;
 			}
 			return false;
+		}
+	}
+	public class ObservedProcessHelper : ObservedProcess {
+		public List<ProcessObserver> observers = new List<ProcessObserver>();
+		float count = 0;
+
+		bool ObservedProcess.isBusy => count > 0;
+
+		public void CountUp() {
+			count++;
+			if (count == 1) {
+				foreach (var observer in observers) {
+					observer.OnGetBusy();
+				}
+			}
+		}
+		public void CountDown() {
+			count--;
+			if (count == 0) {
+				foreach (var observer in observers) {
+					observer.OnGetIdle();
+				}
+			}
+		}
+		void ObservedProcess.AcceptObserver(ProcessObserver observer) {
+			observers.Add(observer);
 		}
 	}
 	public class ConvertingEnumarable<EnumeratedType, SourceType> : IEnumerable<EnumeratedType> {
