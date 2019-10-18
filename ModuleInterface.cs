@@ -1,36 +1,34 @@
 ﻿namespace AGDev {
-	public interface GateProcess {
+	public interface Taker<ItemType> {
+		void Take(ItemType item);
+		void None();
+	}
+	public interface Giver<ItemType, RequestType> {
+		void Give(RequestType request, Taker<ItemType> taker);
+	}
+	public interface ImmediateGiver<ItemType, RequestType> {
+		ItemType PickBestElement(RequestType request);
+	}
+	public interface Gate {
 		bool isOpen { get; }
 		void Open(bool doCloseImmediate);
 		void Close();
 	}
-	public interface SimpleTrigger {
-		void Trigger(SimpleProcessListener simpleListener);
+	public interface Trigger {
+		void Pull(SimpleProcessListener simpleListener);
 	}
 	public interface SimpleProcessListener {
 		void OnFinish(bool didSuccess);
 	}
-    public interface ModuleInterceptListener {
-        void OnBeginWorking();
-        void OnAllProcessDone();
-    }
-    public interface Collector<ItemType> {
-		void Collect(ItemType item);
+	public interface InterceptListener {
+		void OnBeginWorking();
+		void OnAllProcessDone();
 	}
-	public interface AsyncCollector<ElementType> : Collector<ElementType> {
-		void OnFinish();
-	}
-	public interface Picker<ElementType, KeyType> {
-		void PickBestElement(KeyType key, AsyncCollector<ElementType> colletor);
-	}
-	public interface ImmediatePicker<ElementType, KeyType> {
-		ElementType PickBestElement(KeyType key);
-	}
-	public interface GeneralPicker<KeyType> {
-		void PickBestElement<ElementType>(KeyType key, AsyncCollector<ElementType> processor);
+	public interface GeneralGiver<KeyType> {
+		void Give<ElementType>(KeyType key, Taker<ElementType> taker);
 	}
 	public interface ConfigurationListener {
-		void OnEnableConfigure<Type>(string name, Collector<Type> collector, Type initialValue);
+		void OnEnableConfigure<Type>(string name, Taker<Type> taker, Type initialValue);
 		void OnDisableConfigure(string name);
 	}
 	public interface Configurable {

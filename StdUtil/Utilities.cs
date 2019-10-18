@@ -20,6 +20,15 @@ namespace AGDev.StdUtil {
 			}
 			return false;
 		}
+		public static ElemType GetElementAt<ElemType>(IEnumerable<ElemType> enumerable, int index){
+			int currentIndex = 0;
+			foreach (var element in enumerable) {
+				if (index == currentIndex)
+					return element;
+				currentIndex++;
+			}
+			return default;
+		}
 	}
 	public class ObservedProcessHelper : ObservedProcess {
 		public List<ProcessObserver> observers = new List<ProcessObserver>();
@@ -49,7 +58,7 @@ namespace AGDev.StdUtil {
 	}
 	public class ConvertingEnumarable<EnumeratedType, SourceType> : IEnumerable<EnumeratedType> {
 		public IEnumerable<SourceType> sourceEnumerable;
-		public Func<SourceType, EnumeratedType> convertFunc;
+		public Func<SourceType, EnumeratedType> convertFunc = (source)=>(EnumeratedType)(object)source ;
 		IEnumerator<EnumeratedType> IEnumerable<EnumeratedType>.GetEnumerator() {
 			return new GetComponentEnumarator { gObjEnumerator = sourceEnumerable.GetEnumerator(), ConvertFunc = convertFunc };
 		}
@@ -109,119 +118,63 @@ namespace AGDev.StdUtil {
 		}
 	}
 	#region collector
-	public class EasyAsyncCollector<Type> : AsyncCollector<Type> {
+	public class EasyTaker<Type> : Taker<Type> {
 		public Type collected;
 		public bool didFinish = false;
-		void Collector<Type>.Collect(Type item) {
+		void Taker<Type>.Take(Type item) {
 			collected = item;
+			didFinish = true;
 		}
-		void AsyncCollector<Type>.OnFinish() {
+		void Taker<Type>.None() {
 			didFinish = true;
 		}
 	}
-	public class LoggingCollector<Type> : Collector<Type> {
-		public Collector<Type> client;
+	public class LoggingTaker<Type> : Taker<Type> {
+		public Taker<Type> client;
 		public bool didCollect = false;
-		public void Collect(Type newElement) {
+		public void Take(Type newElement) {
 			didCollect = true;
-			client.Collect(newElement);
+			client.Take(newElement);
+		}
+
+		void Taker<Type>.None() {
+			client.None();
+			didCollect = false;
+		}
+
+		void Taker<Type>.Take(Type item) {
+			client.Take(item);
+			didCollect = true;
 		}
 	}
-	public class ClusterCollector<Type> : Collector<Type> {
-		public IEnumerable<Collector<Type>> collectors;
-		public void Collect(Type newElement) {
+	public class ClusterTaker<ResultType> : Taker<ResultType> {
+		public IEnumerable<Taker<ResultType>> collectors;
+		void Taker<ResultType>.Take(ResultType newElement) {
 			foreach (var collector in collectors) {
-				collector.Collect(newElement);
-			}
-		}
-	}
-	public class ClusterAsyncCollector<ResultType> : AsyncCollector<ResultType> {
-		public IEnumerable<AsyncCollector<ResultType>> collectors;
-		void Collector<ResultType>.Collect(ResultType newElement) {
-			foreach (var collector in collectors) {
-				collector.Collect(newElement);
+				collector.Take(newElement);
 			}
 		}
 
-		void AsyncCollector<ResultType>.OnFinish() {
+		void Taker<ResultType>.None() {
 			foreach (var collector in collectors) {
-				collector.OnFinish();
+				collector.None();
 			}
 		}
 	}
-	public class ToBaseAsyncCollector<SubType, BaseType> : AsyncCollector<SubType> {
-		public AsyncCollector<BaseType> baseCollector;
-		void Collector<SubType>.Collect(SubType newElement) {
-			baseCollector.Collect((BaseType)(object)newElement);
+	public class ToBaseTaker<SubType, BaseType> : Taker<SubType> {
+		public Taker<BaseType> baseTaker;
+		void Taker<SubType>.Take(SubType newElement) {
+			baseTaker.Take((BaseType)(object)newElement);
 		}
-		void AsyncCollector<SubType>.OnFinish() {
-			baseCollector.OnFinish();
-		}
-	}
-	public class CollectorBridge<ElementType> : AsyncCollector<ElementType> {
-		public Collector<ElementType> collector;
-		void Collector<ElementType>.Collect(ElementType newElement) {
-			collector.Collect(newElement);
-		}
-		void AsyncCollector<ElementType>.OnFinish() { }
-	}
-	public class CollectingBuildDirector<ResultType> {
-		public AsyncCollector<ResultType> productCollector;
-		public ResultType productToBuild;
-		List<ResultHolder> buildResults = new List<ResultHolder>();
-		public AsyncCollector<IntegrantType> NewIntegrantCollector<IntegrantType>(Action<ResultType, IntegrantType, SimpleProcessListener> buidingAction) {
-			var resultHolder = new ResultHolder();
-			buildResults.Add(resultHolder);
-			return new CollectingBuilder<IntegrantType> { buidingAction = buidingAction, parent = this, resultHolder = resultHolder };
-		}
-		class ResultHolder {
-			public bool didDetermin = false;
-			public bool didSuccess = false;
-		}
-		public void CheckResult() {
-			if (productCollector == null)
-				return;
-			foreach (var buildResult in buildResults) {
-				if (buildResult.didDetermin) {
-					if (!buildResult.didSuccess) {
-						//build failed
-						productCollector.OnFinish();
-						productCollector = null;
-						return;
-					}
-				}
-				else {
-					//not completed
-					return;
-				}
-			}
-			//completed
-			productCollector.Collect(productToBuild);
-			productCollector.OnFinish();
-		}
-		class CollectingBuilder<IntegrantType> : AsyncCollector<IntegrantType>, SimpleProcessListener {
-			public Action<ResultType, IntegrantType, SimpleProcessListener> buidingAction;
-			public ResultHolder resultHolder;
-			public CollectingBuildDirector<ResultType> parent;
-			void Collector<IntegrantType>.Collect(IntegrantType integrant) {
-				buidingAction(parent.productToBuild, integrant, this);
-			}
-
-			void AsyncCollector<IntegrantType>.OnFinish() {
-			}
-
-			void SimpleProcessListener.OnFinish(bool didSuccess) {
-				resultHolder.didDetermin = true;
-				resultHolder.didSuccess = didSuccess;
-				parent.CheckResult();
-			}
+		void Taker<SubType>.None() {
+			baseTaker.None();
 		}
 	}
 	#endregion
-	#region picker
-	public class ClusterImmediatePicker<ElementType, KeyType> : ImmediatePicker<ElementType, KeyType> {
-		public IEnumerable<ImmediatePicker<ElementType, KeyType>> pickers;
-		ElementType ImmediatePicker<ElementType, KeyType>.PickBestElement(KeyType key) {
+	#region Giver
+	public class ClusterImmediateGiver<ElementType, KeyType> : ImmediateGiver<ElementType, KeyType> {
+		public IEnumerable<ImmediateGiver<ElementType, KeyType>> pickers;
+		ElementType ImmediateGiver<ElementType, KeyType>.PickBestElement(KeyType key) {
 			foreach (var picker in pickers) {
 				var elem = picker.PickBestElement(key);
 				if (elem != null) {
@@ -231,49 +184,59 @@ namespace AGDev.StdUtil {
 			return default(ElementType);
 		}
 	}
-	class DictionaryPicker<ElementType, KeyType> : ImmediatePicker<ElementType, KeyType> {
+	class DictionaryGiver<ElementType, KeyType> : ImmediateGiver<ElementType, KeyType> {
 		public Dictionary<KeyType, ElementType> dict = new Dictionary<KeyType, ElementType>();
-		ElementType ImmediatePicker<ElementType, KeyType>.PickBestElement(KeyType key) {
+		ElementType ImmediateGiver<ElementType, KeyType>.PickBestElement(KeyType key) {
 			dict.TryGetValue(key, out var result);
 			return result;
 		}
 	}
-	public class PickerLineup<ElementType, KeyType> : Picker<ElementType, KeyType> {
-		public IEnumerable<Picker<ElementType, KeyType>> subPickers;
-		void Picker<ElementType, KeyType>.PickBestElement(KeyType key, AsyncCollector<ElementType> colletor) {
-			var enumerator = subPickers.GetEnumerator();
+	public class GiverLineup<ElementType, KeyType> : Giver<ElementType, KeyType> {
+		public IEnumerable<Giver<ElementType, KeyType>> subGivers;
+		void Giver<ElementType, KeyType>.Give(KeyType key, Taker<ElementType> colletor) {
+			var enumerator = subGivers.GetEnumerator();
 			if (enumerator.MoveNext())
-				enumerator.Current.PickBestElement(key, new PrvtCollector { enumerator = enumerator, clientColletor = colletor, key = key });
+				enumerator.Current.Give(key, new PrvtTaker { enumerator = enumerator, clientColletor = colletor, key = key });
 		}
-		public class PrvtCollector : AsyncCollector<ElementType> {
-			public IEnumerator<Picker<ElementType, KeyType>> enumerator;
-			public AsyncCollector<ElementType> clientColletor;
+		public class PrvtTaker : Taker<ElementType> {
+			public IEnumerator<Giver<ElementType, KeyType>> enumerator;
+			public Taker<ElementType> clientColletor;
 			public KeyType key;
-			bool didPick = false;
-			void Collector<ElementType>.Collect(ElementType item) {
-				clientColletor.Collect(item);
-				didPick = true;
+			void Taker<ElementType>.Take(ElementType item) {
+				clientColletor.Take(item);
 			}
 
-			void AsyncCollector<ElementType>.OnFinish() {
-				if (!didPick && enumerator.MoveNext()) {
-					enumerator.Current.PickBestElement(key, this);
+			void Taker<ElementType>.None() {
+				if (enumerator.MoveNext()) {
+					enumerator.Current.Give(key, this);
 					return;
 				}
-				clientColletor.OnFinish();
+				else {
+					clientColletor.None();
+				}
 			}
 		}
 	}
-	public class DefaultValuePicker<ElementType, KeyType> : Picker<ElementType, KeyType> {
+	public class DefaultValueGiver<ElementType, KeyType> : Giver<ElementType, KeyType> {
 		public ElementType defaultValue;
-		void Picker<ElementType, KeyType>.PickBestElement(KeyType key, AsyncCollector<ElementType> colletor) {
-			colletor.Collect(defaultValue);
-			colletor.OnFinish();
+		void Giver<ElementType, KeyType>.Give(KeyType key, Taker<ElementType> colletor) {
+			colletor.Take(defaultValue);
 		}
 	}
-	public class StubAsyncCollector<ItemType> : AsyncCollector<ItemType> {
-		void Collector<ItemType>.Collect(ItemType item) { }
-		void AsyncCollector<ItemType>.OnFinish() { }
+	public class StubGiver<ElementType, KeyType> : Giver<ElementType, KeyType> {
+		void Giver<ElementType, KeyType>.Give(KeyType request, Taker<ElementType> taker) {
+			taker.None();
+		}
+	}
+	public class StubImmediateGiver<ElementType, KeyType> : ImmediateGiver<ElementType, KeyType> {
+		ElementType ImmediateGiver<ElementType, KeyType>.PickBestElement(KeyType request) {
+			return default;
+		}
+	}
+	public class StubGeneralGiver<RequestType> : GeneralGiver<RequestType> {
+		void GeneralGiver<RequestType>.Give<ItemType>(RequestType request, Taker<ItemType> taker) {
+			taker.None();
+		}
 	}
 	#endregion
 	#region behavior trigger
