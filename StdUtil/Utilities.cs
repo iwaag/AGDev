@@ -174,9 +174,9 @@ namespace AGDev.StdUtil {
 	#region Giver
 	public class ClusterImmediateGiver<ElementType, KeyType> : ImmediateGiver<ElementType, KeyType> {
 		public IEnumerable<ImmediateGiver<ElementType, KeyType>> pickers;
-		ElementType ImmediateGiver<ElementType, KeyType>.PickBestElement(KeyType key) {
+		ElementType ImmediateGiver<ElementType, KeyType>.Give(KeyType key) {
 			foreach (var picker in pickers) {
-				var elem = picker.PickBestElement(key);
+				var elem = picker.Give(key);
 				if (elem != null) {
 					return elem;
 				}
@@ -186,7 +186,7 @@ namespace AGDev.StdUtil {
 	}
 	class DictionaryGiver<ElementType, KeyType> : ImmediateGiver<ElementType, KeyType> {
 		public Dictionary<KeyType, ElementType> dict = new Dictionary<KeyType, ElementType>();
-		ElementType ImmediateGiver<ElementType, KeyType>.PickBestElement(KeyType key) {
+		ElementType ImmediateGiver<ElementType, KeyType>.Give(KeyType key) {
 			dict.TryGetValue(key, out var result);
 			return result;
 		}
@@ -229,7 +229,7 @@ namespace AGDev.StdUtil {
 		}
 	}
 	public class StubImmediateGiver<ElementType, KeyType> : ImmediateGiver<ElementType, KeyType> {
-		ElementType ImmediateGiver<ElementType, KeyType>.PickBestElement(KeyType request) {
+		ElementType ImmediateGiver<ElementType, KeyType>.Give(KeyType request) {
 			return default;
 		}
 	}

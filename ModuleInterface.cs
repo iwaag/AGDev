@@ -7,7 +7,7 @@
 		void Give(RequestType request, Taker<ItemType> taker);
 	}
 	public interface ImmediateGiver<ItemType, RequestType> {
-		ItemType PickBestElement(RequestType request);
+		ItemType Give(RequestType request);
 	}
 	public interface Gate {
 		bool isOpen { get; }
